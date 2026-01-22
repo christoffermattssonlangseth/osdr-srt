@@ -1,9 +1,10 @@
-# OSDR-ST (Xenium OSDR notebook)
+# OSDR-ST (Xenium OSDR notebooks)
 
-This repo contains a working notebook to run OSDR on a Xenium dataset and score proliferation/apoptosis markers.
+This repo contains working notebooks to run OSDR on a Xenium dataset and score proliferation/apoptosis markers.
 
 ## What’s in here
-- `xenium_OSDR.ipynb`: main notebook
+- `xenium_OSDR_happy_path.ipynb`: minimal, end‑to‑end workflow (recommended start)
+- `xenium_OSDR.ipynb`: full workflow with extra diagnostics and plots
 - `osdr_one_shot.ipynb`: copy of the official OSDR tutorial (optional)
 - `osdr_quickstart.ipynb`: minimal import test (optional)
 
@@ -22,35 +23,38 @@ pip install git+https://github.com/JonathanSomer/osdr.git
 python -m ipykernel install --user --name osdr-py311 --display-name "Python (osdr-3.11)"
 ```
 
-## Notebook workflow (xenium_OSDR.ipynb)
-1. **Load your `.h5ad`**
-   - Update the path in the first data-load cell.
-2. **Score proliferation / apoptosis**
-   - Uses marker sets (Ki67/Top2a/MCMs for proliferation; Caspases/Bcl2 family for apoptosis).
-   - Scores are computed on `ad.X` (already normalized/log-transformed).
-3. **Build `single_cell_df` for OSDR**
-   - Required columns: `x`, `y`, `cell_type`, `division`, `img_id`, `subject_id`.
-   - `cell_type` is set from `ad.obs['anno_L2']`.
-   - `division` is set to the top 2% by `prolif_score` (adjustable).
-   - `subject_id` defaults to `ad.obs['subject_id']` or falls back to `ad.obs['sample_id']`.
-   - `img_id` defaults to `ad.obs['fov_id']` or falls back to `ad.obs['sample_id']`.
-   - Coordinates are assumed to be in **microns** and converted to meters via `tdm.utils.microns`.
-4. **Run OSDR**
-   - Uses `Analysis(..., polynomial_dataset_kwargs={'degree': 1}, model_kwargs={'regularization_alpha': 1e-3}, enforce_max_density=False)`
-   - These settings avoid singular fits and max-density overflows on large datasets.
-5. **Plot phase portraits**
-   - Set `cell_types_to_model` (two types) or enable `auto_pick` to plot all pairs.
+## Happy path (xenium_OSDR_happy_path.ipynb)
+1. Load your `.h5ad` data
+2. Score proliferation markers (using normalized/log data in `ad.X`)
+3. Build `single_cell_df` in OSDR format
+4. Choose two cell types
+5. Run OSDR and plot phase portrait + growth rate
+
+Key defaults:
+- `cell_type` from `ad.obs['anno_L2']`
+- `division` = top 2% by `prolif_score`
+- `img_id` = `fov_id` if present, else `sample_id`
+- `subject_id` = `subject_id` if present, else `sample_id`
+- coordinates assumed in **microns** (converted to meters)
+
+## Full workflow (xenium_OSDR.ipynb)
+Includes:
+- calibration plots
+- cross‑validation (toggle)
+- growth rate + trajectory plots
+- model diagnostics
+- pairwise phase portraits for multiple cell types
 
 ## Common issues
 - **IORegistryError when reading .h5ad**: update `anndata`/`h5py` to the versions above.
 - **“Expected a single subject ID”**: ensure `img_id` groups do **not** mix subjects.
-- **“Categorical has no attribute item”**: cast `img_id`/`subject_id` to string (already handled in notebook).
+- **“Categorical has no attribute item”**: cast `img_id`/`subject_id` to string (handled in notebooks).
 - **Overflow in maximal density enforcer**: disable with `enforce_max_density=False`.
 - **Singular matrix**: use `degree=1` and add `regularization_alpha`.
+- **Unknown cell type names in plots**: add fallbacks to `CELL_TYPE_TO_FULL_NAME` and `CELL_FULL_NAME_TO_COLOR`.
 
 ## Next steps
 - Tune the division cutoff (e.g., top 1%–5%)
 - Use a real FOV/section column for `img_id` if available
 - Cache analysis results for faster iteration
 
-If you want additional plots or a more automated pipeline, extend `xenium_OSDR.ipynb` accordingly.
